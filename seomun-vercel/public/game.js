@@ -112,7 +112,7 @@ function investigate(index){
  story.play([{speaker:c.title,text:c.text}],{choices:[{label:'지나치기',run:()=>idleExplore()},{label:'단서로 채택 ✦',primary:true,run:()=>{
   if(c.valid){clues.add(index);sfx('clue')}else{discarded.add(index);mistakes=Math.min(3,mistakes+1);sfx('enemy')}
   renderZone();setExploreInteraction(false);
-  story.play([{speaker:'瑞門 '+profile.name,text:c.valid?'瑞門의 기운이 응답한다. 올바른 흔적이다. '+(clues.size===3?'세 흔적이 이어졌다. 망량의 진짜 자리가 드러난다.':'다른 구역의 흔적도 이어 보자.'):'사람이 남긴 평범한 물건이었다. 결계에 오염이 스며든다. 시작 체력 -12.'}],{endLabel:clues.size===3?'기척을 따라간다 ✦':'탐색 계속 ✦',onComplete:()=>clues.size===3?finishExplore():idleExplore()});
+  story.play([{speaker:'瑞門 '+profile.name,text:c.valid?'서녘님의 기운이 응답한다. 올바른 흔적이다. '+(clues.size===3?'세 흔적이 이어졌다. 망량의 진짜 자리가 드러난다.':'다른 구역의 흔적도 이어 보자.'):'사람이 남긴 평범한 물건이었다. 결계에 오염이 스며든다. 시작 체력 -12.'}],{endLabel:clues.size===3?'기척을 따라간다 ✦':'탐색 계속 ✦',onComplete:()=>clues.size===3?finishExplore():idleExplore()});
  }}]});
 }
 async function finishExplore(){
@@ -150,14 +150,46 @@ function updateCooldowns(p){
   if(key==='ultimate'){b.querySelector('small').textContent='궁극 '+p.charge+' / 100';b.querySelector('.charge-track>i').style.width=p.charge+'%'}
  });
 }
+let dodgeWarningSeen =
+  localStorage.getItem('seomun-dodge-warning-seen') === 'true';
 
+let firstWarningAttack = null;
 function renderBattle(){
  if(!state||view!=='battle'||state.version!==6)return;if(state.cinematicUntil>Date.now()&&document.body.classList.contains('in-cinematic')&&state.serial===lastEvent)return;const p=state.players.find(p=>p.id===playerId);if(!p)return;
  $('battleName').textContent=p.name;$('guardianNote').textContent=p.guardianUntil>Date.now()?'서문단의 보호 · '+Math.max(0,(p.guardianUntil-Math.max(Date.now(),state.cinematicUntil))/1000).toFixed(1)+'초의 가호':p.guardianUsed?'시조의 가호 · 사용 완료':'시조의 가호 · 남은 1회';$('battleFamily').textContent=p.lockedUntil>Date.now()&&state.bossHp>0?'술식 봉쇄':p.family;
  $('hpFill').style.width=p.hp/140*100+'%';$('spFill').style.width=p.sp+'%';$('statText').textContent=`체력 ${p.hp} / 140 · 영력 ${p.sp}`;
  $('bossFill').style.width=(state.bossHp/state.bossMax*100)+'%';$('bossHpText').textContent=state.bossHp.toLocaleString()+' / '+state.bossMax.toLocaleString();$('phaseLabel').textContent=state.bossHp===0?'SEALED':state.bossHp<state.bossMax*.4?'PHASE II':'PHASE I';
  $('wardValue').innerHTML=state.ward+'<small>%</small>';$('wardRing').style.setProperty('--ward',state.ward+'%');$('wardNote').textContent=state.panels.filter(x=>x.integrity===100).length+' / 6면 완성';updateCooldowns(p);renderTactics(state,playerId);
- const warning=state.phase==='active'&&state.bossHp>0&&state.attack&&(isEnemyUltimate(state.attack.type)||state.attack.landAt-Date.now()<2000);show('combatWarning',!!warning);
+ const impending =
+  state.phase === 'active' &&
+  state.bossHp > 0 &&
+  state.attack &&
+  (
+    isEnemyUltimate(state.attack.type) ||
+    state.attack.landAt - Date.now() < 2000
+  );
+
+if (
+  impending &&
+  !isEnemyUltimate(state.attack.type) &&
+  !dodgeWarningSeen
+) {
+  dodgeWarningSeen = true;
+  firstWarningAttack = state.attack;
+
+  try {
+    localStorage.setItem('seomun-dodge-warning-seen', 'true');
+  } catch {}
+}
+
+const warning =
+  impending &&
+  (
+    isEnemyUltimate(state.attack.type) ||
+    state.attack === firstWarningAttack
+  );
+
+show('combatWarning', !!warning);
  if(warning){$('combatWarning').querySelector('b').textContent=state.attack.type==='rupture'?'적월단공 · 붉은 가로 세 줄 밖으로':state.attack.type==='ultimate'?'백귀야행 · 은빛 칸으로 도망쳐':'붉은 칸에서 벗어나세요';$('combatWarning').querySelector('small').textContent='겹치면 피해 · 술식 봉쇄 · 격자 파괴'}
  if(state.bossHp===0&&state.phase==='active'){show('stageSubtitle');$('stageSubtitle').textContent='망량 퇴치. 주문을 이어 여섯 면을 완성하세요.';updateProgress(3)}
  if(state.serial!==lastEvent)$('battleLog').innerHTML=state.events.filter(e=>e.type!=='move').slice(-3).map(e=>`<div>${esc(e.text)}</div>`).join('');
