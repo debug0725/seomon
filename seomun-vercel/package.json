@@ -1,0 +1,11 @@
+{
+  "name": "seomun-boundary",
+  "version": "1.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "node scripts/verify.mjs",
+    "check:original": "node scripts/verify.mjs --original"
+  }
+}
